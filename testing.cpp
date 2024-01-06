@@ -1,15 +1,15 @@
 #include <iostream>
 #include "commons.h"
 
-// Assuming definitions of ui64 and FORCEINLINE
+// Assuming definitions of ui64 and inline
 using ui64 = unsigned long long; // Change to the appropriate unsigned 64-bit integer type
 
-// The FORCEINLINE macro (replace it with appropriate definition if available)
-#define FORCEINLINE inline
+// The inline macro (replace it with appropriate definition if available)
+#define inline inline
 
 
 template< typename Item>
-FORCEINLINE void addElements(Item* a, ui64 low, ui64 high, Item* c)
+inline void addElements(Item* a, ui64 low, ui64 high, Item* c)
 {
     // std::cout << " Input to add element is low : " << low  << " high : " << high << std::endl;
     for(ui64 i = low; i < high; i++)
@@ -24,7 +24,7 @@ FORCEINLINE void addElements(Item* a, ui64 low, ui64 high, Item* c)
 }
 
 template<typename Reg, typename Item>
-FORCEINLINE int binarySearch(Item* a, ui64 low, ui64 high, Item b, ui64 lenA) {
+inline int binarySearch(Item* a, ui64 low, ui64 high, Item b, ui64 lenA) {
     std::cout << " Binary Search low : " << low  << " high : " << high  << " b: " << b << std::endl;
 
     while (low < high) {
@@ -47,7 +47,7 @@ FORCEINLINE int binarySearch(Item* a, ui64 low, ui64 high, Item b, ui64 lenA) {
 }
 
 template<typename Reg, typename Item>
-FORCEINLINE void binaryMerge(Item* A, ui64 lenA, Item* B, ui64 lenB, Item* C)
+inline void binaryMerge(Item* A, ui64 lenA, Item* B, ui64 lenB, Item* C)
 {
     Item* a = A, * b = B, * endA = (A + lenA), * endB = (B + lenB), * c = C;
     ui64 j = 0;

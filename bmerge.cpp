@@ -18,8 +18,6 @@
  --------------------------------------------------------------------------------------------*/
 
 #include "commons.h"
-#include "utils.h"
-#include "writer.h"
 #include "merger.h"
 #include <pthread.h>
 #include <err.h>
@@ -27,64 +25,6 @@
  #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-template <typename Reg, bool stream, typename Item = ui, ui mergeType = 1, ui NREG = 1, ui UNROLL = 1>
-void bmerge(ui writer_type = 1) {
-
-
-	ui64 init_sz = stream ? MB(128) : (L2_BYTES >> 1); 
-	ui Itemsize = sizeof(Item);
-	ui64 n = init_sz / Itemsize;
-	
-	constexpr int repeat = stream ? 100 : 1e3;
-
-	// create chunks, align boundary
-	ui64 chunk = (n / (UNROLL << 1));
-	chunk = (chunk / (sizeof(Reg) * NREG / Itemsize) * (sizeof(Reg) * NREG / Itemsize));
-	n = chunk * (UNROLL << 1);
-
-	ui64 sz = n * Itemsize;
-	Item* A = (Item*)VALLOC(sz);
-	Item* C = (Item*)VALLOC(sz);
-
-	datagen::Writer<Item>  writer;
-	writer.generate(A, n, writer_type);
-	memset(C, 0, sz);
-	sort_every(A, n, chunk);	
-
-	printf("Reg: %lu, Key: %u, NREG: %u, UNROLL: %u\n", sizeof(Reg) << 3, Itemsize << 3, NREG, UNROLL);
-	printf("Merging ... ");
-	hrc::time_point st = hrc::now();
-	FOR(i, repeat, 1) {
-		if constexpr (std::is_same<Item, Reg>::value) {
-			if constexpr (mergeType == 0)
-				merger::nplusmplus1<Reg, Item>(A, chunk, A + chunk, chunk, C);
-			else if constexpr (mergeType == 1)
-				merger::binaryMerge<Reg, Item>(A, chunk, A + chunk, chunk, C);
-			else if constexpr (mergeType == 2)
-				merger::scalarOddEvenMerge<Reg, Item>(A, chunk, A + chunk, chunk, C);
-			else merger::scalarMerge<Reg, Item>(A, chunk, A + chunk, chunk, C);
-
-		}else{
-			merger::vectorizedOddEvenMerge<Reg, Item>(A, chunk, A + chunk, chunk, C);
-		}
-	}
-
-	hrc::time_point en = hrc::now();
-	double el = ELAPSED_MS(st, en);
-	double sp = n * repeat / el / 1e3;
-	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", el, sp);		
-
-	printf("Checking correcntess ... ");
-	FOR(i, UNROLL, 1)
-		sort_correctness_checker(C + i * (chunk << 1), (chunk << 1));
-
-	printf("done\n");
-
-	VFREE(A, sz);
-	VFREE(C, sz);
-	PRINT_DASH(50);
-}
 
 // Function to print __m128i variable values
 void print128i(__m128i var) {
@@ -96,9 +36,185 @@ void print128i(__m128i var) {
     std::cout << std::endl;
 }
 
+void randomNumberGenerator(ui* array, ui64 numberOfItems)
+{
+	std::random_device rd; 
+    std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<ui> distribution;
+
+    // Generate random numbers
+    for (ui64 i = 0; i < numberOfItems; ++i) {
+        array[i] = distribution(gen);
+    }
+}
+
+void sort_splits(ui* src, ui64 size ,ui ns)
+{
+	ui64 split_size = size / ns;	
+#pragma omp parallel for
+	for (int i = 0; i < size; i += split_size)
+	{
+		std::sort(src + i , src + i + split_size);
+	}
+}
+
+void correctnessChecked(ui* a, ui64 n)
+{
+	for(int i = 1; i < n; i++)
+	{
+		if(a[i-1] > a[i])
+		{
+			std::cout << "Out of order. Index: " << i << std::endl ;
+			return;
+		}
+	}
+}
+
+template<ui split = 1, ui64 size = L2_BYTES>
+void bmerge()
+{
+	printf("--------------------------------------------------------------\n");
+	ui itemSize = sizeof(ui);
+	ui64 number_of_items = size / itemSize;
+
+	ui number_of_splits = split << 1;
+	ui aSplits = number_of_splits - 1;
+	ui bSplits = 1;
+	
+	ui* src = (ui*)VALLOC(size);
+	ui* dest = (ui*)VALLOC(size);
+
+	// Generate the data 
+	randomNumberGenerator(src, number_of_items);
+	memset(dest, 0, size);
+
+	// Start the Merge
+	int repeat = 1;
+	double totalTime = 0.0;
+
+	ui64 split_size = number_of_items / number_of_splits;	
+	std::sort (src , src + split_size * aSplits);
+	std::sort (src + split_size * aSplits, src + number_of_items);
+
+	// for (int i = 0 ; i < number_of_items ; i++)
+	// {
+	// 	printf("%u ", src[i]);
+	// }
+	printf("Config: Scalar %d : split %d : size %llu\n", 1, split, size);
+
+
+	for (int i = 0; i < repeat; i++)
+	{
+		hrc::time_point startTime = hrc::now();
+		merger::binaryMerge(src, split_size * aSplits, src + split_size * aSplits, split_size * bSplits, dest);
+		hrc::time_point endTime = hrc::now();
+
+		totalTime += duration_cast<duration<double, std::milli>>(endTime - startTime).count();
+
+		correctnessChecked(dest, number_of_items);
+	}
+	// for (int i = 0 ; i < number_of_items ; i++)
+	// {
+	// 	printf("%u ", *(dest + i));
+	// }
+
+	double speed = number_of_items * repeat / totalTime / 1e3;
+	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);	
+	printf("--------------------------------------------------------------\n");
+
+	// Check correctness
+}
+
+template<bool scalar = true , int mergeType = 0, ui split = 1, ui64 size = L2_BYTES>
+void merge()
+{
+	printf("--------------------------------------------------------------\n");
+	ui itemSize = sizeof(ui);
+	ui64 number_of_items = size / itemSize;
+
+	ui number_of_splits = split << 1;
+
+	ui* src = (ui*)VALLOC(size);
+	ui* dest = (ui*)VALLOC(size);
+
+	// Generate the data 
+	// datagen::Writer<ui>  writer;
+	// writer.generate(src, number_of_items, 1);
+	randomNumberGenerator(src, number_of_items);
+
+	memset(dest, 0, size);
+
+	// Start the Merge
+	int repeat = 1000;
+	double totalTime = 0.0;
+
+	ui64 split_size = number_of_items / number_of_splits;	
+
+	// Sort the splits
+	sort_splits(src, number_of_items, number_of_splits);
+
+	printf("Config: Scalar %d : Merge Type %d : split %d\n", scalar, mergeType, split);
+
+	for (int i = 0; i < repeat; i++)
+	{
+		hrc::time_point startTime = hrc::now();
+		// Merge Algorithms
+		if constexpr (scalar) {
+			if constexpr (split == 1)
+			{
+				if constexpr (mergeType == 0)
+					merger::nplusmplus1(src, split_size, src + split_size, split_size, dest);
+				else if constexpr (mergeType == 1)
+					merger::binaryMerge(src, split_size, src + split_size, split_size, dest);
+				else if constexpr (mergeType == 2)
+					merger::scalarOddEvenMerge(src, split_size, src + split_size, split_size, dest);
+				else merger::scalarMerge(src, split_size, src + split_size, split_size, dest);
+			}
+			else if constexpr (split == 2)
+			{
+				if constexpr (mergeType == 2)
+					merger::scalarOddEvenMerge(src, split_size, src + split_size, split_size, src + 2 * split_size,
+						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+			}
+		}else{
+			if constexpr (split == 1)
+			{
+				merger::vectorizedOddEvenMerge(src, split_size, src + split_size, split_size, dest);
+			}
+			else if constexpr(split == 2)
+			{
+				merger::vectorizedOddEvenMergeWithSplit(src, split_size, src + split_size, split_size, src + 2 * split_size,
+						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+			}
+		}
+		hrc::time_point endTime = hrc::now();
+
+		totalTime += duration_cast<duration<double, std::milli>>(endTime - startTime).count();
+		for (int j = 0; j < split ; j++)
+			correctnessChecked(dest + j * 2 * split_size, 2 * split_size);
+	}
+
+	double speed = number_of_items * repeat / totalTime / 1e3;
+	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);	
+	printf("--------------------------------------------------------------\n");
+
+	// Check correctness
+}
+
 int main() {
 
-	bmerge<Regtype, false, Itemtype, MERGE_TYPE, 1, 1>();
-	system("pause");
+	// First Para: true for scalar
+	// Second Para: Type of algorithm:  0: nplusmplus1 1: binaryMerge 2: scalarOddEvenMerge 3: scalarMerge (Origami Merge)
+	// Third Para: number of splits (1 or 2) supported
+	//merge<false, 2, 1>();
+
+// template<bool scalar = true , ui split = 1, ui64 size = L2_BYTES>
+	bmerge< 1>();
+	bmerge< 2>();
+	bmerge< 3>();
+	bmerge< 4>();
+	bmerge< 5>();
+	
 	return 0;
 }
