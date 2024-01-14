@@ -9,7 +9,7 @@ namespace merger{
         a = temp;
     }
 
-    inline void scalarMerge(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
+    inline void scalarMerge2Neg(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
     {
 		ui* a = A, * b = B, * endA = (A + lenA), * endB = (B + lenB), * c = C;
         ui a0, a1, a2, a3;
@@ -28,17 +28,16 @@ namespace merger{
         while(loadFrom != endA && loadFrom != endB)
         {
             bool first = *loadFrom <= *opposite;
-
             ui* temp = first ? loadFrom : opposite;
             opposite = first ? opposite : loadFrom ;
-            loadFrom = temp;    
-
+            loadFrom = temp;  
+  
             SWAP(0, 2);
             SWAP(1, 3);
             SWAP(1, 2);
 
             c[0] = a0;
-            c[1] = a1;
+            c[1] = a1;            
             a0 = loadFrom[0];
             a1 = loadFrom[1];
             c = c  + 2;
@@ -64,6 +63,30 @@ namespace merger{
         c[1] = a3;
         
     }
+
+    inline void scalarMerge1Neg(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
+    {
+		ui* a = A, * b = B, * endA = (A + lenA), * endB = (B + lenB), * c = C;
+
+        while(a != endA && b != endB)
+        {
+            bool first = *a <= *b;
+            c[0] = first ? a[0] : b[0];
+            a += first ? 1 : 0;
+            b += first ? 0 : 1;
+            c += 1;
+        }
+
+        ui* endOp = (a == endA) ? endB : endA;
+        ui* startOp = (a == endA) ? b : a;
+        while (startOp != endOp)
+        {
+            c[0] = startOp[0];
+            c += 1;
+            startOp += 1;
+        }
+    }
+
 
     inline void nplusmplus1(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
     {
@@ -452,6 +475,50 @@ namespace merger{
         var2 = _mm_unpackhi_epi64(var1, var2);
         var1 = lowerHalfVar1;
     }
+
+
+    void print128i(__m128i var) {
+        int32_t *values = (int32_t *)&var;
+        std::cout << "Values: ";
+        for (int i = 0; i < 4; ++i) {
+            std::cout << values[i] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    // Bitonic Merge
+    inline void vectorSort2(sse& x1, sse& x2)
+    {   
+        x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(0, 1, 2, 3));
+        __m128i l1l = _mm_min_epu32(x1, x2);
+        __m128i l1h  = _mm_max_epu32(x1, x2);
+        
+        {	
+            __m128i l2i = _mm_shuffle_epi32(l1l, _MM_SHUFFLE(1, 0, 3, 2));
+            __m128i l2l = _mm_min_epu32(l1l, l2i);
+            __m128i l2h = _mm_max_epu32(l1l, l2i);
+            l2i = _mm_unpackhi_epi64(l2l, l2h);
+
+            __m128i l3i = _mm_shuffle_epi32(l2i, _MM_SHUFFLE(2, 3, 0, 1));
+            __m128i l3l = _mm_min_epu32(l2i, l3i);
+            __m128i l3h = _mm_max_epu32(l2i, l3i);
+
+            x1 = _mm_blend_ps(l3l, l3h, 10);
+        }
+
+        {
+            __m128i l2i = _mm_shuffle_epi32(l1h, _MM_SHUFFLE(1, 0, 3, 2));
+            __m128i l2l = _mm_min_epu32(l1h, l2i);
+            __m128i l2h = _mm_max_epu32(l1h, l2i);
+            l2i = _mm_unpackhi_epi64(l2l, l2h);
+
+            __m128i l3i = _mm_shuffle_epi32(l2i, _MM_SHUFFLE(2, 3, 0, 1));
+            __m128i l3l = _mm_min_epu32(l2i, l3i);
+            __m128i l3h = _mm_max_epu32(l2i, l3i);
+
+            x2 = _mm_blend_ps(l3l, l3h, 10);
+        }
+    }
     
     inline void vectorSort(sse& x1, sse& x2)
     {
@@ -475,15 +542,7 @@ namespace merger{
         x1 = _mm_shuffle_epi32(temp, _MM_SHUFFLE(1,2,0,3));
     }
 
-    void print128i(__m128i var) {
-        int32_t *values = (int32_t *)&var;
-        std::cout << "Values: ";
-        for (int i = 0; i < 4; ++i) {
-            std::cout << values[i] << " ";
-        }
-        std::cout << std::endl;
-    }
-
+    template<int algorithm = 1>
     inline void vectorizedOddEvenMerge(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
     {
 		sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
@@ -503,7 +562,10 @@ namespace merger{
 			opposite = first ? opposite : loadFrom;
 			loadFrom = tmp;
 
-            vectorSort(a0, a1);
+            if constexpr (algorithm == 1)
+                vectorSort(a0, a1);
+            else vectorSort2(a0, a1);
+
             store(a0, c);
             load(a0, loadFrom);
 
@@ -511,7 +573,9 @@ namespace merger{
             loadFrom += 1;
         }
 
-        vectorSort(a0, a1);
+        if constexpr (algorithm == 1)
+            vectorSort(a0, a1);
+        else vectorSort2(a0, a1);
         store(a0, c);
 
         c += 1;
@@ -519,7 +583,10 @@ namespace merger{
 
         while (opposite != endOp) {
             load(a0, opposite);
-            vectorSort(a0, a1);
+            if constexpr (algorithm == 1)
+                vectorSort(a0, a1);
+            else vectorSort2(a0, a1);
+
             store(a0, c);
 
             opposite += 1;
@@ -529,6 +596,7 @@ namespace merger{
     }
 
 
+    template<int algorithm = 1>
     inline void vectorizedOddEvenMergeWithSplit(ui* A, ui64 lenA, ui* B, ui64 lenB,ui* D,ui64 lenD, ui* E , ui64 lenE, ui* C, ui* F)
     {
 		sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
@@ -561,14 +629,18 @@ namespace merger{
             opposite2 = first ? opposite2 : loadFrom2;
             loadFrom2 = tmp;
 
-            vectorSort(a0, a1);
+             if constexpr (algorithm == 1)
+                vectorSort(a0, a1);
+            else vectorSort2(a0, a1);
             store(a0, c);
             load(a0, loadFrom);
 
             c += 1;
             loadFrom += 1;
 
-            vectorSort(a2, a3);
+            if constexpr (algorithm == 1)
+                vectorSort(a2, a3);
+            else vectorSort2(a2, a3);
             store(a2, f);
             load(a2, loadFrom2);
 
@@ -583,7 +655,9 @@ namespace merger{
 			opposite = first ? opposite : loadFrom;
 			loadFrom = tmp;
 
-            vectorSort(a0, a1);
+            if constexpr (algorithm == 1)
+                vectorSort(a0, a1);
+            else vectorSort2(a0, a1);
             store(a0, c);
             load(a0, loadFrom);
 
@@ -598,7 +672,9 @@ namespace merger{
             opposite2 = first ? opposite2 : loadFrom2;
             loadFrom2 = tmp;
 
-            vectorSort(a2, a3);
+            if constexpr (algorithm == 1)
+                vectorSort(a2, a3);
+            else vectorSort2(a2, a3);
             store(a2, f);
             load(a2, loadFrom2);
 
@@ -607,7 +683,9 @@ namespace merger{
         }
         
         // Sort the remaining items of the first split
-        vectorSort(a0, a1);
+        if constexpr (algorithm == 1)
+            vectorSort(a0, a1);
+        else vectorSort2(a0, a1);
         store(a0, c);
 
         c += 1;
@@ -615,7 +693,9 @@ namespace merger{
 
         while (opposite != endOp) {
             load(a0, opposite);
-            vectorSort(a0, a1);
+            if constexpr (algorithm == 1)
+                vectorSort(a0, a1);
+            else vectorSort2(a0, a1);
             store(a0, c);
 
             opposite += 1;
@@ -624,7 +704,10 @@ namespace merger{
         store(a1, c);
 
         // Sort the remaining items of the second split
-        vectorSort(a2, a3);
+        if constexpr (algorithm == 1)
+            vectorSort(a2, a3);
+        else vectorSort2(a2, a3);
+
         store(a2, f);
 
         f += 1;
@@ -632,7 +715,9 @@ namespace merger{
 
         while (opposite2 != endOp) {
             load(a2, opposite2);
-            vectorSort(a2, a3);
+            if constexpr (algorithm == 1)
+                vectorSort(a2, a3);
+            else vectorSort2(a2, a3);
             store(a2, f);
 
             opposite2 += 1;

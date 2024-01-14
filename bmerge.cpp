@@ -90,7 +90,7 @@ void bmerge()
 	memset(dest, 0, size);
 
 	// Start the Merge
-	int repeat = 1;
+	int repeat = 10000;
 	double totalTime = 0.0;
 
 	ui64 split_size = number_of_items / number_of_splits;	
@@ -146,7 +146,7 @@ void merge()
 	memset(dest, 0, size);
 
 	// Start the Merge
-	int repeat = 1000;
+	int repeat = 10000;
 	double totalTime = 0.0;
 
 	ui64 split_size = number_of_items / number_of_splits;	
@@ -169,7 +169,10 @@ void merge()
 					merger::binaryMerge(src, split_size, src + split_size, split_size, dest);
 				else if constexpr (mergeType == 2)
 					merger::scalarOddEvenMerge(src, split_size, src + split_size, split_size, dest);
-				else merger::scalarMerge(src, split_size, src + split_size, split_size, dest);
+				else if constexpr (mergeType == 3)
+					merger::scalarMerge1Neg(src, split_size, src + split_size, split_size, dest);
+				else
+					merger::scalarMerge2Neg(src, split_size, src + split_size, split_size, dest);
 			}
 			else if constexpr (split == 2)
 			{
@@ -180,11 +183,11 @@ void merge()
 		}else{
 			if constexpr (split == 1)
 			{
-				merger::vectorizedOddEvenMerge(src, split_size, src + split_size, split_size, dest);
+				merger::vectorizedOddEvenMerge<mergeType>(src, split_size, src + split_size, split_size, dest);
 			}
 			else if constexpr(split == 2)
 			{
-				merger::vectorizedOddEvenMergeWithSplit(src, split_size, src + split_size, split_size, src + 2 * split_size,
+				merger::vectorizedOddEvenMergeWithSplit<mergeType>(src, split_size, src + split_size, split_size, src + 2 * split_size,
 						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
 			}
 		}
@@ -205,16 +208,13 @@ void merge()
 int main() {
 
 	// First Para: true for scalar
-	// Second Para: Type of algorithm:  0: nplusmplus1 1: binaryMerge 2: scalarOddEvenMerge 3: scalarMerge (Origami Merge)
+	// Second Para: Type of algorithm:  
+	// 0: nplusmplus1 1: binaryMerge 2: scalarOddEvenMerge 3: Optimised scalarMerge-1Reg (Origami) 4: scalarMerge-2Reg (Origami Merge)
 	// Third Para: number of splits (1 or 2) supported
-	//merge<false, 2, 1>();
 
-// template<bool scalar = true , ui split = 1, ui64 size = L2_BYTES>
-	bmerge< 1>();
-	bmerge< 2>();
-	bmerge< 3>();
-	bmerge< 4>();
-	bmerge< 5>();
+	// Vector
+	// mergeType = 1: OddEven 2: Bitonic
+	merge<false, 2, 2>();
 	
 	return 0;
 }
