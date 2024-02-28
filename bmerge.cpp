@@ -65,7 +65,7 @@ void correctnessChecked(ui* a, ui64 n)
 	{
 		if(a[i-1] > a[i])
 		{
-			std::cout << "Out of order. Index: " << i << std::endl ;
+			std::cout << "Out of order. Index: " << i << " Size: " << n << std::endl ;
 			return;
 		}
 	}
@@ -183,12 +183,30 @@ void merge()
 		}else{
 			if constexpr (split == 1)
 			{
-				merger::vectorizedOddEvenMerge<mergeType>(src, split_size, src + split_size, split_size, dest);
+				if constexpr(mergeType == 4)
+				{
+					merger::rotateAndSwap8(src, split_size, src + split_size, split_size, dest);
+				}
+				else if constexpr(mergeType == 5)
+				{
+					merger::vectorBatcherMergeOptimized(src, split_size, src + split_size, split_size, dest);
+				}
+				else
+				{
+					merger::vectorizedOddEvenMerge<mergeType>(src, split_size, src + split_size, split_size, dest);
+				}
 			}
 			else if constexpr(split == 2)
 			{
-				merger::vectorizedOddEvenMergeWithSplit<mergeType>(src, split_size, src + split_size, split_size, src + 2 * split_size,
+				if constexpr(mergeType == 5)
+				{
+					merger::vectorBatcherMergeWithSplit(src, split_size, src + split_size, split_size, src + 2 * split_size,
 						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+				}
+				else{
+					merger::vectorizedOddEvenMergeWithSplit<mergeType>(src, split_size, src + split_size, split_size, src + 2 * split_size,
+						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+				}
 			}
 		}
 		hrc::time_point endTime = hrc::now();
@@ -213,8 +231,9 @@ int main() {
 	// Third Para: number of splits (1 or 2) supported
 
 	// Vector
-	// mergeType = 1: OddEven 2: Bitonic
-	merge<false, 2, 2>();
+	// mergeType = 1: OddEven 2: Bitonic 3: Rotate and Swap 5: Batcher's Odd Even Merge
+	// MergeType 
+	merge<false, 5, 1>();
 	
 	return 0;
 }

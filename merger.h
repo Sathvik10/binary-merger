@@ -478,7 +478,7 @@ namespace merger{
 
 
     void print128i(__m128i var) {
-        int32_t *values = (int32_t *)&var;
+        uint32_t *values = (uint32_t *)&var;
         std::cout << "Values: ";
         for (int i = 0; i < 4; ++i) {
             std::cout << values[i] << " ";
@@ -519,7 +519,578 @@ namespace merger{
             x2 = _mm_blend_ps(l3l, l3h, 10);
         }
     }
+
+    inline void minMaxSwap(sse& x1, sse& x2)
+    {
+        sse temp = _mm_min_epu32(x1, x2);
+        x2 = _mm_max_epu32(x1, x2);
+        x1 = temp;
+    }
+
+    inline void bitonicMerge(sse& x1, sse& x2)
+    {
+        // Level 1
+        x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(0, 1, 2, 3));
+        __m128i l1l = _mm_min_epu32(x1, x2);
+        __m128i l1h  = _mm_max_epu32(x1, x2);
+
+
+        // Level 2: Diaginal Exchange 
+        //_mm_alignr_epi8(a0, a0, 4);
+        // __m128i temp = _mm_shuffle_ps(l1l, l1h, 68);
+        // x2 = _mm_shuffle_ps(l1l, l1h, 238);
+        // x1 = temp;
+
+        __m128i temp = _mm_blendv_epi8(l1l, l1h, _mm_set_epi32(-1, -1 , 0, 0));
+        x2 = _mm_blendv_epi8(l1h, l1l, _mm_set_epi32(-1, -1 , 0, 0));
+        x1 = _mm_alignr_epi8(temp, temp, 8);
+
+        minMaxSwap(x1, x2);
+
+        temp = _mm_blendv_epi8(x1, x2,  _mm_set_epi32(-1, 0 , -1, 0));
+        x2 = _mm_blendv_epi8(x2, x1,  _mm_set_epi32(-1, 0 , -1, 0));
+        x1 =  _mm_shuffle_epi32(temp, _MM_SHUFFLE(2, 3, 0, 1));
+
+        minMaxSwap(x1, x2);
+
+        x1 = _mm_alignr_epi8(x1, x1, 8);
+        temp = _mm_blendv_epi8(x1, x2, _mm_set_epi32(-1, -1 , 0, 0));
+        x2 = _mm_blendv_epi8(x2, x1, _mm_set_epi32(-1, -1 , 0, 0));
+
+        x1 = _mm_shuffle_epi32(temp, _MM_SHUFFLE(2,0,3,1));
+        x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(0,2,1,3));
+    }
     
+    // 20 shuffles, 3 blends and 17 swaps
+    inline void batcherMerge(sse& x1, sse& x2, sse& x3, sse& x4, sse& x5, sse& x6, sse& x7, sse& x8)
+    {
+        // Step 1
+        minMaxSwap(x1, x5);minMaxSwap(x2, x6);
+        minMaxSwap(x3, x7);minMaxSwap(x4, x8);
+
+        // Step 2
+        minMaxSwap(x5, x3); minMaxSwap(x6, x4);
+
+        // Step 3
+        minMaxSwap(x5, x2);minMaxSwap(x6, x3);
+        minMaxSwap(x7, x4);
+
+        sse carry = _mm_alignr_epi8(x5, x8, 8);
+        sse t1= _mm_blend_epi16(carry, x1, 15);
+        x5 =  _mm_alignr_epi8(x6, x5, 8);
+        x6 = _mm_alignr_epi8(x7, x6, 8);
+        x7 = _mm_alignr_epi8(x8, x7, 8);
+
+        minMaxSwap(t1, x1); minMaxSwap(x5, x2);
+        minMaxSwap(x6, x3); minMaxSwap(x7, x4);
+
+        sse carry2 = _mm_blend_epi16(carry, t1, 0xF0);
+        carry2 = _mm_alignr_epi8(x5, carry2, 4);
+        t1 = _mm_blend_epi16(carry2, x1, 3);
+        x5 = _mm_alignr_epi8(x6, x5, 4);
+        x6 = _mm_alignr_epi8(x7, x6, 4);
+        x7 = _mm_alignr_epi8(carry, x7, 4);
+
+        minMaxSwap(t1, x1); minMaxSwap(x5, x2);
+        minMaxSwap(x6, x3);minMaxSwap(x7, x4);
+
+        t1 = _mm_alignr_epi8(x5, t1, 4);
+        x5 = _mm_alignr_epi8(x6, x5, 4);
+        x6 = _mm_alignr_epi8(x7, x6, 4);
+        x7 = _mm_alignr_epi8(carry2, x7, 4);
+
+        x8 = _mm_unpackhi_epi32(x4, x7);
+        x7 = _mm_unpacklo_epi32(x4, x7);
+        sse temp = _mm_unpacklo_epi32(x3, x6);
+        x6 = _mm_unpackhi_epi32(x3, x6);
+        x4 = _mm_unpackhi_epi32(x2, x5);
+        x3 = _mm_unpacklo_epi32(x2, x5);
+        x5 = temp;
+        x2 = _mm_unpackhi_epi32(x1, t1);
+        x1 = _mm_unpacklo_epi32(x1, t1);
+    }
+
+    // 17 swaps, 22 shuffles
+    inline void batcherMerge1722(sse& x1, sse& x2, sse& x3, sse& x4, sse& x5, sse& x6, sse& x7, sse& x8)
+    {
+        minMaxSwap(x1, x5);minMaxSwap(x2, x6);
+        minMaxSwap(x3, x7);minMaxSwap(x4, x8);
+
+        minMaxSwap(x5, x3); minMaxSwap(x6, x4);
+
+        minMaxSwap(x5, x2);minMaxSwap(x6, x3);
+        minMaxSwap(x7, x4);
+
+        sse t = _mm_alignr_epi8(x5, _mm_set_epi32(0, 0, 0, 0), 8);
+        x5 =  _mm_alignr_epi8(x6, x5, 8);
+        x6 = _mm_alignr_epi8(x7, x6, 8);
+        x7 = _mm_alignr_epi8(x8, x7, 8);
+        x8 = _mm_alignr_epi8(x8, x8, 8);
+
+        minMaxSwap(t, x1); minMaxSwap(x5, x2);
+        minMaxSwap(x6, x3);minMaxSwap(x7, x4);
+
+        t = _mm_alignr_epi8(x5, t, 4);
+        x5 =  _mm_alignr_epi8(x6, x5, 4);
+        x6 = _mm_alignr_epi8(x7, x6, 4);
+        x7 = _mm_alignr_epi8(x8, x7, 4);
+        x8 = _mm_alignr_epi8(x8, x8, 4);
+
+        minMaxSwap(t, x1); minMaxSwap(x5, x2);
+        minMaxSwap(x6, x3);minMaxSwap(x7, x4);
+
+        t = _mm_alignr_epi8(x5, t, 4);
+        x5 =  _mm_alignr_epi8(x6, x5, 4);
+        x6 = _mm_alignr_epi8(x7, x6, 4);
+        x7 = _mm_alignr_epi8(x8, x7, 4);
+
+        x8 = _mm_unpackhi_epi32(x4, x7);
+        x7 = _mm_unpacklo_epi32(x4, x7);
+        sse temp = _mm_unpacklo_epi32(x3, x6);
+        x6 = _mm_unpackhi_epi32(x3, x6);
+        x4 = _mm_unpackhi_epi32(x2, x5);
+        x3 = _mm_unpacklo_epi32(x2, x5);
+        x5 = temp;
+        x2 = _mm_unpackhi_epi32(x1, t);
+        x1 = _mm_unpacklo_epi32(x1, t);
+    }
+
+    inline void vectorBatcherMergeOptimized(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
+    {
+        const int reg = 4;
+
+        sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
+        sse* realA = endA;
+        sse* realB = endB;
+
+        endA -= 4;
+        endB -= 4;
+		sse a0, a1, a2, a3, a4, a5, a6, a7;
+        load(a0, a);
+        load(a1, a + 1);
+        load(a2, a + 2);
+        load(a3, a + 3);
+
+        load(a4, b);
+        load(a5, b + 1);
+        load(a6, b + 2);
+        load(a7, b + 3);
+
+        a += reg;
+        b += reg;
+        sse* loadFrom = a, * opposite = b;
+
+		while ((a<= loadFrom && loadFrom <= endA) || (b<=loadFrom && loadFrom <= endB)) {
+
+			bool first = *(ui*)loadFrom < *(ui*)opposite;
+			sse* tmp = first ? loadFrom : opposite;
+			opposite = first ? opposite : loadFrom;
+			loadFrom = tmp;
+
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            c += reg;
+
+            if (_mm_extract_epi32(a7, 3) <=  *(ui*)loadFrom)
+            {
+                store(a4, c);
+                store(a5, c + 1);
+                store(a6, c + 2);
+                store(a7, c + 3);
+
+                load(a4, opposite);
+                load(a5, opposite + 1);
+                load(a6, opposite + 2);
+                load(a7, opposite + 3);
+
+                opposite += 4;
+                c += 4;
+            }else if(_mm_extract_epi32(a6, 3) <=  *(ui*)loadFrom)
+            {
+                store(a4, c);
+                store(a5, c + 1);
+                store(a6, c + 2);
+
+                a4 = a7;
+                load(a5, opposite);
+                load(a6, opposite + 1);
+                load(a7, opposite + 2);
+
+                opposite += 3;
+                c += 3;
+            }else if(_mm_extract_epi32(a5, 3) <=  *(ui*)loadFrom)
+            {
+                store(a4, c);
+                store(a5, c + 1);
+
+                a4 = a6;
+                a5 = a7;
+                load(a6, opposite);
+                load(a7, opposite + 1);
+
+                opposite += 2;
+                c += 2;
+
+            }else if(_mm_extract_epi32(a4, 3) <=  *(ui*)loadFrom)
+            {
+                store(a4, c);
+
+                a4 = a5;
+                a5 = a6;
+                a6 = a7;
+                load(a7, opposite);
+
+                opposite += 1;
+                c += 1;
+            }
+            load(a0, loadFrom);
+            load(a1, loadFrom + 1);
+            load(a2, loadFrom + 2);
+            load(a3, loadFrom + 3);
+            loadFrom += reg;
+        }
+
+        batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+        store(a0, c);
+        store(a1, c + 1);
+        store(a2, c + 2);
+        store(a3, c + 3);
+
+        c += reg;
+        bool firstStream = (a<= loadFrom && loadFrom <= realA);
+        sse* finishedStream = firstStream ? realA : realB;
+
+        int remainingElements = finishedStream - loadFrom;
+        if(remainingElements > 0){
+            // Adding the remaining elements from finished stream.
+            sse top[4]; sse bottom[4];
+            bottom[0] = a4; bottom[1] = a5; bottom[2] = a6; bottom[3] = a7;
+            int zeros = 4 - remainingElements;
+
+            for(int i = 0; i < zeros; i++)
+            {
+                top[i] = _mm_set_epi32(0, 0, 0, 0);
+            }
+            for(int i = zeros; i < 4; i++)
+            {
+                sse ax; load(ax, loadFrom + i - zeros);
+                top[i] = ax;
+            }
+            batcherMerge(top[0], top[1],top[2], top[3], a4, a5, a6, a7);
+            for(int i = zeros; i < 4; i++)
+            {
+                sse ax = top[i]; store(ax, c);
+                c += 1;
+            }
+        }
+
+		sse* endOp = firstStream ? endB : endA;
+        finishedStream = firstStream ? realB : realA;
+
+        while (opposite <= endOp) {
+            load(a0, opposite);
+            load(a1, opposite + 1);
+            load(a2, opposite + 2);
+            load(a3, opposite + 3);
+            
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+            
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            opposite += reg;
+			c += reg;
+        }
+
+        remainingElements = finishedStream - opposite;
+        if(remainingElements > 0){
+            // Adding the remaining elements from finished stream.
+            sse top[4];
+            int zeros = 4 - remainingElements;
+
+            for(int i = 0; i < zeros; i++)
+            {
+                top[i] = _mm_set_epi32(0, 0, 0, 0);
+            }
+            for(int i = zeros; i < 4; i++)
+            {
+                sse ax; load(ax, opposite + i - zeros);
+                top[i] = ax;
+            }
+
+            batcherMerge(top[0], top[1],top[2], top[3], a4, a5, a6, a7);
+            
+            for(int i = zeros; i < 4; i++)
+            {
+                sse ax = top[i]; store(ax, c);
+                c += 1;
+            }
+        }
+
+        store(a4, c);
+        store(a5, c + 1);
+        store(a6, c + 2);
+        store(a7, c + 3);
+    }
+
+    inline void vectorBatcherMerge(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
+    {
+        const int reg = 4;
+        sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
+		sse a0, a1, a2, a3, a4, a5, a6, a7;
+        load(a0, a);
+        load(a1, a + 1);
+        load(a2, a + 2);
+        load(a3, a + 3);
+
+        load(a4, b);
+        load(a5, b + 1);
+        load(a6, b + 2);
+        load(a7, b + 3);
+
+
+        a += reg;
+        b += reg;
+        sse* loadFrom = a, * opposite = b;
+
+		while (loadFrom != endA && loadFrom != endB) {
+			bool first = *(ui*)loadFrom < *(ui*)opposite;
+
+			sse* tmp = first ? loadFrom : opposite;
+			opposite = first ? opposite : loadFrom;
+			loadFrom = tmp;
+
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            load(a0, loadFrom);
+            load(a1, loadFrom + 1);
+            load(a2, loadFrom + 2);
+            load(a3, loadFrom + 3);
+
+            c += reg;
+            loadFrom += reg;
+        }
+
+        batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+        store(a0, c);
+        store(a1, c + 1);
+        store(a2, c + 2);
+        store(a3, c + 3);
+
+        c += reg;
+		sse* endOp = (loadFrom == endA) ? endB : endA;
+
+        while (opposite != endOp) {
+            load(a0, opposite);
+            load(a1, opposite + 1);
+            load(a2, opposite + 2);
+            load(a3, opposite + 3);
+            
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+            
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            opposite += reg;
+			c += reg;
+        }
+        store(a4, c);
+        store(a5, c + 1);
+        store(a6, c + 2);
+        store(a7, c + 3);
+    }
+
+    inline void vectorBatcherMergeWithSplit(ui* A, ui64 lenA, ui* B, ui64 lenB,ui* D,ui64 lenD, ui* E , ui64 lenE, ui* C, ui* F)
+    {
+        const int reg = 4;
+        sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
+		sse* d = (sse*)D, * e = (sse*)E, * endD = (sse*)(D + lenD), * endE = (sse*)(E + lenE), * f = (sse*)F;
+		sse a0, a1, a2, a3, a4, a5, a6, a7;
+        sse a8, a9, a10, a11, a12, a13, a14, a15;
+        load(a0, a);
+        load(a1, a + 1);
+        load(a2, a + 2);
+        load(a3, a + 3);
+
+        load(a4, b);
+        load(a5, b + 1);
+        load(a6, b + 2);
+        load(a7, b + 3);
+
+        load(a8, d);
+        load(a9, d + 1);
+        load(a10, d + 2);
+        load(a11, d + 3);
+
+        load(a12, e);
+        load(a13, e + 1);
+        load(a14, e + 2);
+        load(a15, e + 3);
+        
+        a += reg;
+        b += reg;
+        d += reg;
+        e += reg;
+
+        sse* loadFrom = a, * opposite = b;
+        sse* loadFrom2 = d, * opposite2 = e;
+
+        while(loadFrom != endA && loadFrom != endB && loadFrom2 != endD && loadFrom2 != endE)
+        {
+            bool first = *(ui*)loadFrom < *(ui*)opposite;
+			sse* tmp = first ? loadFrom : opposite;
+			opposite = first ? opposite : loadFrom;
+			loadFrom = tmp; 
+
+            first =  *(ui*)loadFrom2 < *(ui*)opposite2;
+            tmp = first ? loadFrom2 : opposite2;
+            opposite2 = first ? opposite2 : loadFrom2;
+            loadFrom2 = tmp;
+
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+            batcherMerge(a8, a9, a10, a11, a12, a13, a14, a15);
+
+            store(a0, c);   store(a1, c + 1);   store(a2, c + 2);   store(a3, c + 3);
+            store(a8, f);   store(a9, f + 1);   store(a10, f + 2);   store(a11, f + 3);
+
+            load(a0, loadFrom);
+            load(a1, loadFrom + 1);
+            load(a2, loadFrom + 2);
+            load(a3, loadFrom + 3);
+
+            load(a8, loadFrom2);
+            load(a9, loadFrom2 + 1);
+            load(a10, loadFrom2 + 2);
+            load(a11, loadFrom2 + 3);
+
+            c += reg;
+            f += reg;
+            loadFrom += reg;
+            loadFrom2 += reg;
+        }
+
+		while (loadFrom != endA && loadFrom != endB) {
+			bool first = *(ui*)loadFrom < *(ui*)opposite;
+
+			sse* tmp = first ? loadFrom : opposite;
+			opposite = first ? opposite : loadFrom;
+			loadFrom = tmp;
+
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            load(a0, loadFrom);
+            load(a1, loadFrom + 1);
+            load(a2, loadFrom + 2);
+            load(a3, loadFrom + 3);
+
+            c += reg;
+            loadFrom += reg;
+        }
+
+
+		while (loadFrom2 != endD && loadFrom2 != endE)
+        {
+            bool first = *(ui*)loadFrom2 < *(ui*)opposite2;
+            sse* tmp = first ? loadFrom2 : opposite2;
+            opposite2 = first ? opposite2 : loadFrom2;
+            loadFrom2 = tmp;
+
+            batcherMerge(a8, a9, a10, a11, a12, a13, a14, a15);
+
+            store(a8, f);   store(a9, f + 1);   store(a10, f + 2);   store(a11, f + 3);
+            load(a8, loadFrom2);
+            load(a9, loadFrom2 + 1);
+            load(a10, loadFrom2 + 2);
+            load(a11, loadFrom2 + 3);
+
+            f += reg;
+            loadFrom2 += reg;
+        }
+
+        batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+        store(a0, c);
+        store(a1, c + 1);
+        store(a2, c + 2);
+        store(a3, c + 3);
+
+        c += reg;
+		sse* endOp = (loadFrom == endA) ? endB : endA;
+
+        while (opposite != endOp) {
+            load(a0, opposite);
+            load(a1, opposite + 1);
+            load(a2, opposite + 2);
+            load(a3, opposite + 3);
+            
+            batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+            
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            opposite += reg;
+			c += reg;
+        }
+        store(a4, c);
+        store(a5, c + 1);
+        store(a6, c + 2);
+        store(a7, c + 3);
+
+
+        batcherMerge(a8, a9, a10, a11, a12, a13, a14, a15);
+        store(a8, f);   store(a9, f + 1);   store(a10, f + 2);   store(a11, f + 3);
+
+        f += reg;
+        endOp = (loadFrom2 == endD) ? endE : endD;
+
+        while (opposite2 != endOp) {
+            load(a8, opposite2);
+            load(a9, opposite2 + 1);
+            load(a10, opposite2 + 2);
+            load(a11, opposite2 + 3);
+            
+            batcherMerge(a8, a9, a10, a11, a12, a13, a14, a15);
+
+            store(a8, f);   store(a9, f + 1);   store(a10, f + 2);   store(a11, f + 3);
+
+            opposite2 += reg;
+			f += reg;
+        }
+        store(a12, f);   store(a13, f + 1);   store(a14, f + 2);   store(a15, f + 3);
+    }
+
+    inline void vectorSortRotateAndSwap(sse& x1, sse& x2)
+    {
+        minMaxSwap(x1, x2);
+        x1 = _mm_alignr_epi8(x1, x1, 4);
+        minMaxSwap(x1, x2);
+        x1 = _mm_alignr_epi8(x1, x1, 4);
+        minMaxSwap(x1, x2);
+        x1 = _mm_alignr_epi8(x1, x1, 4);
+        minMaxSwap(x1, x2);
+        x1 = _mm_alignr_epi8(x1, x1, 4);
+    }
+
     inline void vectorSort(sse& x1, sse& x2)
     {
         compareAndSort(x1, x2);
@@ -547,7 +1118,6 @@ namespace merger{
     {
 		sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
 		sse a0, a1;
-
         load(a0, a);
         load(a1, b);
 
@@ -564,7 +1134,9 @@ namespace merger{
 
             if constexpr (algorithm == 1)
                 vectorSort(a0, a1);
-            else vectorSort2(a0, a1);
+            else if constexpr (algorithm == 2)
+                bitonicMerge(a0, a1);
+            else vectorSortRotateAndSwap(a0, a1);
 
             store(a0, c);
             load(a0, loadFrom);
@@ -575,7 +1147,9 @@ namespace merger{
 
         if constexpr (algorithm == 1)
             vectorSort(a0, a1);
-        else vectorSort2(a0, a1);
+        else if constexpr (algorithm == 2)
+            bitonicMerge(a0, a1);
+        else vectorSortRotateAndSwap(a0, a1);
         store(a0, c);
 
         c += 1;
@@ -585,8 +1159,9 @@ namespace merger{
             load(a0, opposite);
             if constexpr (algorithm == 1)
                 vectorSort(a0, a1);
-            else vectorSort2(a0, a1);
-
+            else if constexpr (algorithm == 2)
+                bitonicMerge(a0, a1);
+            else vectorSortRotateAndSwap(a0, a1);
             store(a0, c);
 
             opposite += 1;
@@ -724,5 +1299,128 @@ namespace merger{
 			f += 1;
         }
         store(a3, f);
+    }
+
+    inline void rotate(sse& x1, sse& x2)
+	{
+		sse temp = _mm_alignr_epi8(x1, x2, 4);
+		x1 = _mm_alignr_epi8(x2, x1, 4);
+		x2 = temp;
+	}
+
+
+    inline void rotateAndSwap(sse& x1, sse& x2, sse& x3, sse& x4)
+	{
+		minMaxSwap(x1, x3);
+		minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		//minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		//minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		//minMaxSwap(x2, x4);
+		rotate(x1, x2);
+		
+		minMaxSwap(x1, x3);
+		//minMaxSwap(x2, x4);
+		rotate(x1, x2);
+	}
+
+
+	// inline void rotateAndSwap(sse& x1, sse& x2, sse& x3, sse& x4)
+	// {
+	// 	minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	rotate(x1, x2);
+	// 			minMaxSwap(x1, x3);
+	// 	minMaxSwap(x2, x4);
+	// 	//rotate(x1, x2);
+
+	// }
+
+    template<int algorithm = 1>
+    inline void rotateAndSwap8(ui* A, ui64 lenA, ui* B, ui64 lenB, ui* C)
+    {
+		sse* a = (sse*)A, * b = (sse*)B, * endA = (sse*)(A + lenA), * endB = (sse*)(B + lenB), * c = (sse*)C;
+		sse a0, a1, b0, b1;
+        load(a0, a); a += 1;
+        load(a1, a); a += 1;
+
+        load(b0, b); b += 1;
+        load(b1, b); b += 1;
+
+        sse* loadFrom = a, * opposite = b;
+
+		while (loadFrom != endA && loadFrom != endB) {
+			bool first = *(ui*)loadFrom < *(ui*)opposite;
+
+			sse* tmp = first ? loadFrom : opposite;
+			opposite = first ? opposite : loadFrom;
+			loadFrom = tmp;
+
+            rotateAndSwap(a0, a1, b0, b1);
+
+            store(a0, c); c += 1;
+            store(a1, c); c += 1;
+
+            load(a0, loadFrom); loadFrom += 1;
+            load(a1, loadFrom); loadFrom += 1;
+        }
+        
+        rotateAndSwap(a0, a1, b0, b1);
+        store(a0, c); c += 1;
+        store(a1, c); c += 1;
+
+		sse* endOp = (loadFrom == endA) ? endB : endA;
+
+        while (opposite != endOp) {
+            load(a0, opposite); opposite += 1;
+            load(a1, opposite); opposite += 1;
+
+            rotateAndSwap(a0, a1, b0, b1);
+            store(a0, c); c += 1;
+            store(a1, c); c += 1;
+        }
+        store(b0, c); c += 1;
+        store(b1, c); c += 1;
     }
 } 
