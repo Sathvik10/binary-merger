@@ -22,56 +22,59 @@
 #include <pthread.h>
 #include <err.h>
 #include <errno.h>
- #include <sched.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 // Function to print __m128i variable values
-void print128i(__m128i var) {
-    int32_t *values = (int32_t *)&var;
-    std::cout << "Values: ";
-    for (int i = 0; i < 4; ++i) {
-        std::cout << values[i] << " ";
-    }
-    std::cout << std::endl;
-}
-
-void randomNumberGenerator(ui* array, ui64 numberOfItems)
+void print128i(__m128i var)
 {
-	std::random_device rd; 
-    std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<ui> distribution;
-
-    // Generate random numbers
-    for (ui64 i = 0; i < numberOfItems; ++i) {
-        array[i] = distribution(gen);
-    }
-}
-
-void sort_splits(ui* src, ui64 size ,ui ns)
-{
-	ui64 split_size = size / ns;	
-#pragma omp parallel for
-	for (int i = 0; i < size; i += split_size)
+	int32_t *values = (int32_t *)&var;
+	std::cout << "Values: ";
+	for (int i = 0; i < 4; ++i)
 	{
-		std::sort(src + i , src + i + split_size);
+		std::cout << values[i] << " ";
+	}
+	std::cout << std::endl;
+}
+
+void randomNumberGenerator(ui *array, ui64 numberOfItems)
+{
+	std::random_device rd;
+	std::mt19937 gen(rd());
+
+	std::uniform_int_distribution<ui> distribution;
+
+	// Generate random numbers
+	for (ui64 i = 0; i < numberOfItems; ++i)
+	{
+		array[i] = distribution(gen);
 	}
 }
 
-void correctnessChecked(ui* a, ui64 n)
+void sort_splits(ui *src, ui64 size, ui ns)
 {
-	for(int i = 1; i < n; i++)
+	ui64 split_size = size / ns;
+#pragma omp parallel for
+	for (int i = 0; i < size; i += split_size)
 	{
-		if(a[i-1] > a[i])
+		std::sort(src + i, src + i + split_size);
+	}
+}
+
+void correctnessChecked(ui *a, ui64 n)
+{
+	for (int i = 1; i < n; i++)
+	{
+		if (a[i - 1] > a[i])
 		{
-			std::cout << "Out of order. Index: " << i << " Size: " << n << std::endl ;
+			std::cout << "Out of order. Index: " << i << " Size: " << n << std::endl;
 			return;
 		}
 	}
 }
 
-template<ui split = 1, ui64 size = L2_BYTES>
+template <ui split = 1, ui64 size = L2_BYTES>
 void bmerge()
 {
 	printf("--------------------------------------------------------------\n");
@@ -81,11 +84,11 @@ void bmerge()
 	ui number_of_splits = split << 1;
 	ui aSplits = number_of_splits - 1;
 	ui bSplits = 1;
-	
-	ui* src = (ui*)VALLOC(size);
-	ui* dest = (ui*)VALLOC(size);
 
-	// Generate the data 
+	ui *src = (ui *)VALLOC(size);
+	ui *dest = (ui *)VALLOC(size);
+
+	// Generate the data
 	randomNumberGenerator(src, number_of_items);
 	memset(dest, 0, size);
 
@@ -93,16 +96,15 @@ void bmerge()
 	int repeat = 10000;
 	double totalTime = 0.0;
 
-	ui64 split_size = number_of_items / number_of_splits;	
-	std::sort (src , src + split_size * aSplits);
-	std::sort (src + split_size * aSplits, src + number_of_items);
+	ui64 split_size = number_of_items / number_of_splits;
+	std::sort(src, src + split_size * aSplits);
+	std::sort(src + split_size * aSplits, src + number_of_items);
 
 	// for (int i = 0 ; i < number_of_items ; i++)
 	// {
 	// 	printf("%u ", src[i]);
 	// }
 	printf("Config: Scalar %d : split %d : size %llu\n", 1, split, size);
-
 
 	for (int i = 0; i < repeat; i++)
 	{
@@ -120,13 +122,13 @@ void bmerge()
 	// }
 
 	double speed = number_of_items * repeat / totalTime / 1e3;
-	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);	
+	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);
 	printf("--------------------------------------------------------------\n");
 
 	// Check correctness
 }
 
-template<bool scalar = true , int mergeType = 0, ui split = 1, ui64 size = L2_BYTES>
+template <bool scalar = true, int mergeType = 0, ui split = 1, ui64 size = L2_BYTES>
 void merge()
 {
 	printf("--------------------------------------------------------------\n");
@@ -135,21 +137,28 @@ void merge()
 
 	ui number_of_splits = split << 1;
 
-	ui* src = (ui*)VALLOC(size);
-	ui* dest = (ui*)VALLOC(size);
+	ui *src = (ui *)VALLOC(size);
+	ui *dest = (ui *)VALLOC(size);
+	ui *copy = (ui *)VALLOC(size);
 
-	// Generate the data 
+	// Generate the data
 	// datagen::Writer<ui>  writer;
 	// writer.generate(src, number_of_items, 1);
 	randomNumberGenerator(src, number_of_items);
 
 	memset(dest, 0, size);
 
+	for (ui64 i = 0; i < number_of_items; i++)
+	{
+		copy[i] = src[i];
+	}
+	std::sort(copy, copy + number_of_items);
+
 	// Start the Merge
 	int repeat = 10000;
 	double totalTime = 0.0;
 
-	ui64 split_size = number_of_items / number_of_splits;	
+	ui64 split_size = number_of_items / number_of_splits;
 
 	// Sort the splits
 	sort_splits(src, number_of_items, number_of_splits);
@@ -160,7 +169,8 @@ void merge()
 	{
 		hrc::time_point startTime = hrc::now();
 		// Merge Algorithms
-		if constexpr (scalar) {
+		if constexpr (scalar)
+		{
 			if constexpr (split == 1)
 			{
 				if constexpr (mergeType == 0)
@@ -178,62 +188,71 @@ void merge()
 			{
 				if constexpr (mergeType == 2)
 					merger::scalarOddEvenMerge(src, split_size, src + split_size, split_size, src + 2 * split_size,
-						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+											   split_size, src + 3 * split_size, split_size, dest, dest + 2 * split_size);
 			}
-		}else{
+		}
+		else
+		{
 			if constexpr (split == 1)
 			{
-				if constexpr(mergeType == 4)
+				if constexpr (mergeType == 4)
 				{
 					merger::rotateAndSwap8(src, split_size, src + split_size, split_size, dest);
 				}
-				else if constexpr(mergeType == 5)
+				else if constexpr (mergeType == 5)
 				{
-					merger::vectorBatcherMergeOptimized(src, split_size, src + split_size, split_size, dest);
+					merger::vectorBatcherMergeOptimizedv2(src, split_size, src + split_size, split_size, dest);
 				}
 				else
 				{
 					merger::vectorizedOddEvenMerge<mergeType>(src, split_size, src + split_size, split_size, dest);
 				}
 			}
-			else if constexpr(split == 2)
+			else if constexpr (split == 2)
 			{
-				if constexpr(mergeType == 5)
+				if constexpr (mergeType == 5)
 				{
-					merger::vectorBatcherMergeWithSplit(src, split_size, src + split_size, split_size, src + 2 * split_size,
-						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+					merger::vectorBatcherMergeOptimizedWithSplit(src, split_size, src + split_size, split_size, src + 2 * split_size,
+																 split_size, src + 3 * split_size, split_size, dest, dest + 2 * split_size);
 				}
-				else{
+				else
+				{
 					merger::vectorizedOddEvenMergeWithSplit<mergeType>(src, split_size, src + split_size, split_size, src + 2 * split_size,
-						split_size, src + 3 * split_size, split_size, dest, dest + 2 *  split_size);
+																	   split_size, src + 3 * split_size, split_size, dest, dest + 2 * split_size);
 				}
 			}
 		}
 		hrc::time_point endTime = hrc::now();
 
 		totalTime += duration_cast<duration<double, std::milli>>(endTime - startTime).count();
-		for (int j = 0; j < split ; j++)
+		for (int j = 0; j < split; j++)
 			correctnessChecked(dest + j * 2 * split_size, 2 * split_size);
 	}
 
+	// for (int i = 0 ; i < number_of_items ; i++)
+	// {
+	// 	printf("%u %u\n", *(dest + i), *(copy+i));
+	// }
+
 	double speed = number_of_items * repeat / totalTime / 1e3;
-	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);	
+	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);
 	printf("--------------------------------------------------------------\n");
 
 	// Check correctness
 }
 
-int main() {
+int main()
+{
 
 	// First Para: true for scalar
-	// Second Para: Type of algorithm:  
+	// Second Para: Type of algorithm:
 	// 0: nplusmplus1 1: binaryMerge 2: scalarOddEvenMerge 3: Optimised scalarMerge-1Reg (Origami) 4: scalarMerge-2Reg (Origami Merge)
 	// Third Para: number of splits (1 or 2) supported
 
 	// Vector
 	// mergeType = 1: OddEven 2: Bitonic 3: Rotate and Swap 5: Batcher's Odd Even Merge
-	// MergeType 
-	merge<false, 5, 1>();
-	
+	// MergeType
+	merge<false, 5, 2>();
+
 	return 0;
 }
