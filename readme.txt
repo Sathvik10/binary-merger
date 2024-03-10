@@ -47,3 +47,16 @@ Speeds are in M/S. Below are the results with respect to Batcher Odd even Merge
 50 MB - 2268.45
 60 Mb - 2266.94
 ————————————————————————————————————
+
+
+
+——————————————— Batcher Merge optimized Unroll ———————————————
+Generating data with : Mersenne - Twister ... done
+Reg : 128, Key : 32, NREG : 1, UNROLL : 2 Size : 32768 (256 KB)
+Merging ...
+done, elapsed : 868.35 ms, Speed : 3773.60 M / s
+Checking correcntess ... done
+——————————————————————————————————————————	
+
+1 MB - 2722.24 M/s
+20 MB - 2161.64 M/S
