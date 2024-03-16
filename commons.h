@@ -32,8 +32,8 @@
 // #include <immintrin.h>	// AVX
 // #include <zmmintrin.h>	// AVX
 #include <algorithm>
-#include <random>       // std::default_random_engine
-#include <chrono>       // std::chrono::system_clock
+#include <random> // std::default_random_engine
+#include <chrono> // std::chrono::system_clock
 #include <assert.h>
 #include <cstdint>
 #include <iostream>
@@ -47,27 +47,28 @@ using namespace std::chrono;
 using hrc = high_resolution_clock;
 
 // typedef key
-typedef int64_t  i64;
+typedef int64_t i64;
 typedef uint64_t ui64;
 typedef uint32_t ui;
 
 #define L2_BYTES MB(1)
+#define REPEAT 10000
 
 // typedef simd stuff
 typedef __m128i sse;
-typedef __m128	ssef;
-typedef __m128d	ssed;
+typedef __m128 ssef;
+typedef __m128d ssed;
 
-// #define MAX(x, y) ((x)<(y)?(y):(x)) 
-#define FOR(i,n,k)				for (ui64 (i) = 0; (i) < (n); (i)+=(k)) 
-#define MB(x)					(x << 20)
-#define VALLOC(sz)				(mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
+// #define MAX(x, y) ((x)<(y)?(y):(x))
+#define FOR(i, n, k) for (ui64(i) = 0; (i) < (n); (i) += (k))
+#define MB(x) (x << 20)
+#define VALLOC(sz) (mmap(NULL, sz, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0))
 
-
-#define SWAP(x, y){\
-	{\
-		ui tmp = ((a##x)<(a##y)?(a##x):(a##y));\
-		a##y = ((a##x)<(a##y)?(a##y):(a##x));\
-		a##x = tmp; \
-	}\
-}
+#define SWAP(x, y)                                        \
+	{                                                     \
+		{                                                 \
+			ui tmp = ((a##x) < (a##y) ? (a##x) : (a##y)); \
+			a##y = ((a##x) < (a##y) ? (a##y) : (a##x));   \
+			a##x = tmp;                                   \
+		}                                                 \
+	}

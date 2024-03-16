@@ -12,6 +12,53 @@ namespace merger
         std::cout << std::endl;
     }
 
+    void print128i(__m128i var1, __m128i var2, __m128i var3, __m128i var4, __m128i var5, __m128i var6, __m128i var7, __m128i var8)
+    {
+        int32_t *values = (int32_t *)&var1;
+        std::cout << "Values: ";
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+
+        values = (int32_t *)&var2;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var3;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var4;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var5;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var6;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var7;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        values = (int32_t *)&var8;
+        for (int i = 0; i < 4; ++i)
+        {
+            std::cout << values[i] << " ";
+        }
+        std::cout << std::endl;
+    }
+
     inline void swap(ui &a, ui &b)
     {
         ui temp = std::min(a, b);
@@ -809,6 +856,170 @@ namespace merger
         x1 = _mm_unpacklo_epi32(x1, t);
     }
 
+    inline void oddEvenMerge32v32(sse &x1, sse &x2, sse &x3, sse &x4, sse &x5, sse &x6, sse &x7, sse &x8, sse &x9, sse &x10, sse &x11, sse &x12, sse &x13, sse &x14, sse &x15, sse &x16)
+    {
+        // Step 1
+        minMaxSwap(x1, x9);
+        minMaxSwap(x2, x10);
+        minMaxSwap(x3, x11);
+        minMaxSwap(x4, x12);
+        minMaxSwap(x5, x13);
+        minMaxSwap(x6, x14);
+        minMaxSwap(x7, x15);
+        minMaxSwap(x8, x16);
+
+        // Step 2
+        minMaxSwap(x9, x5);
+        minMaxSwap(x10, x6);
+        minMaxSwap(x11, x7);
+        minMaxSwap(x12, x8);
+
+        // Step 3
+        minMaxSwap(x9, x3);
+        minMaxSwap(x10, x4);
+        minMaxSwap(x11, x5);
+        minMaxSwap(x12, x6);
+        minMaxSwap(x13, x7);
+        minMaxSwap(x14, x8);
+
+        // Step 4
+        minMaxSwap(x9, x2);
+        minMaxSwap(x10, x3);
+        minMaxSwap(x11, x4);
+        minMaxSwap(x12, x5);
+        minMaxSwap(x13, x6);
+        minMaxSwap(x14, x7);
+        minMaxSwap(x15, x8);
+
+        // Step 5
+        sse t = _mm_alignr_epi8(x9, _mm_set_epi32(0, 0, 0, 0), 8);
+        x9 = _mm_alignr_epi8(x10, x9, 8);
+        x10 = _mm_alignr_epi8(x11, x10, 8);
+        x11 = _mm_alignr_epi8(x12, x11, 8);
+        x12 = _mm_alignr_epi8(x13, x12, 8);
+        x13 = _mm_alignr_epi8(x14, x13, 8);
+        x14 = _mm_alignr_epi8(x15, x14, 8);
+        x15 = _mm_alignr_epi8(x16, x15, 8);
+        x16 = _mm_alignr_epi8(x16, x16, 8);
+
+        minMaxSwap(t, x1);
+        minMaxSwap(x9, x2);
+        minMaxSwap(x10, x3);
+        minMaxSwap(x11, x4);
+        minMaxSwap(x12, x5);
+        minMaxSwap(x13, x6);
+        minMaxSwap(x14, x7);
+        minMaxSwap(x15, x8);
+
+        t = _mm_alignr_epi8(x9, t, 4);
+        x9 = _mm_alignr_epi8(x10, x9, 4);
+        x10 = _mm_alignr_epi8(x11, x10, 4);
+        x11 = _mm_alignr_epi8(x12, x11, 4);
+        x12 = _mm_alignr_epi8(x13, x12, 4);
+        x13 = _mm_alignr_epi8(x14, x13, 4);
+        x14 = _mm_alignr_epi8(x15, x14, 4);
+        x15 = _mm_alignr_epi8(x16, x15, 4);
+        x16 = _mm_alignr_epi8(x16, x16, 4);
+
+        minMaxSwap(t, x1);
+        minMaxSwap(x9, x2);
+        minMaxSwap(x10, x3);
+        minMaxSwap(x11, x4);
+        minMaxSwap(x12, x5);
+        minMaxSwap(x13, x6);
+        minMaxSwap(x14, x7);
+        minMaxSwap(x15, x8);
+
+        t = _mm_alignr_epi8(x9, t, 4);
+        x9 = _mm_alignr_epi8(x10, x9, 4);
+        x10 = _mm_alignr_epi8(x11, x10, 4);
+        x11 = _mm_alignr_epi8(x12, x11, 4);
+        x12 = _mm_alignr_epi8(x13, x12, 4);
+        x13 = _mm_alignr_epi8(x14, x13, 4);
+        x14 = _mm_alignr_epi8(x15, x14, 4);
+        x15 = _mm_alignr_epi8(x16, x15, 4);
+
+        x16 = _mm_unpackhi_epi32(x8, x15);
+        x15 = _mm_unpacklo_epi32(x8, x15);
+        sse temp13 = _mm_unpacklo_epi32(x7, x14);
+        x14 = _mm_unpackhi_epi32(x7, x14);
+        sse temp11 = _mm_unpacklo_epi32(x6, x13);
+        sse temp12 = _mm_unpackhi_epi32(x6, x13);
+        sse temp10 = _mm_unpackhi_epi32(x5, x12);
+        sse temp9 = _mm_unpacklo_epi32(x5, x12);
+
+        x8 = _mm_unpackhi_epi32(x4, x11);
+        x7 = _mm_unpacklo_epi32(x4, x11);
+        x6 = _mm_unpackhi_epi32(x3, x10);
+        x5 = _mm_unpacklo_epi32(x3, x10);
+        x4 = _mm_unpackhi_epi32(x2, x9);
+        x3 = _mm_unpacklo_epi32(x2, x9);
+        x2 = _mm_unpackhi_epi32(x1, t);
+        x1 = _mm_unpacklo_epi32(x1, t);
+        x13 = temp13;
+        x12 = temp12;
+        x11 = temp11;
+        x10 = temp10;
+        x9 = temp9;
+    }
+    void optimizationCount4(sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
+    {
+        store(a4, c);
+        store(a5, c + 1);
+        store(a6, c + 2);
+        store(a7, c + 3);
+
+        load(a4, opposite);
+        load(a5, opposite + 1);
+        load(a6, opposite + 2);
+        load(a7, opposite + 3);
+
+        opposite += 4;
+        c += 4;
+    }
+
+    void optimizationCount3(sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
+    {
+        store(a4, c);
+        store(a5, c + 1);
+        store(a6, c + 2);
+
+        a4 = a7;
+        load(a5, opposite);
+        load(a6, opposite + 1);
+        load(a7, opposite + 2);
+
+        opposite += 3;
+        c += 3;
+    }
+    void optimizationCount2(sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
+    {
+        store(a4, c);
+        store(a5, c + 1);
+
+        a4 = a6;
+        a5 = a7;
+        load(a6, opposite);
+        load(a7, opposite + 1);
+
+        opposite += 2;
+        c += 2;
+    }
+    void optimizationCount1(sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
+    {
+        store(a4, c);
+        a4 = a5;
+        a5 = a6;
+        a6 = a7;
+        load(a7, opposite);
+
+        opposite += 1;
+        c += 1;
+    }
+    void optimizationCount0(sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
+    {
+    }
+
     inline void conditionalOptimization(sse *&loadFrom, sse *&opposite, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7)
     {
         if (_mm_extract_epi32(a7, 3) <= *(ui *)loadFrom)
@@ -897,6 +1108,35 @@ namespace merger
             }
             batcherMerge(top[0], top[1], top[2], top[3], a4, a5, a6, a7);
             for (int i = zeros; i < 4; i++)
+            {
+                sse ax = top[i];
+                store(ax, c);
+                c += 1;
+            }
+        }
+    }
+
+    inline void addRemainingElementsFromEndStream(sse *&finishedStream, sse *&loadFrom, sse *&c, sse &a4, sse &a5, sse &a6, sse &a7, sse &a8, sse &a9, sse &a10, sse &a11)
+    {
+        int remainingElements = finishedStream - loadFrom;
+        if (remainingElements > 0)
+        {
+            // Adding the remaining elements from finished stream.
+            sse top[8];
+            int zeros = 8 - remainingElements;
+
+            for (int i = 0; i < zeros; i++)
+            {
+                top[i] = _mm_set_epi32(0, 0, 0, 0);
+            }
+            for (int i = zeros; i < 8; i++)
+            {
+                sse ax;
+                load(ax, loadFrom + i - zeros);
+                top[i] = ax;
+            }
+            oddEvenMerge32v32(top[0], top[1], top[2], top[3], top[4], top[5], top[6], top[7], a4, a5, a6, a7, a8, a9, a10, a11);
+            for (int i = zeros; i < 8; i++)
             {
                 sse ax = top[i];
                 store(ax, c);
@@ -1306,17 +1546,23 @@ namespace merger
         store(a15, f + 3);
     }
 
+    template <ui reg = 4>
     inline void vectorBatcherMergeOptimized(ui *A, ui64 lenA, ui *B, ui64 lenB, ui *C)
     {
-        const int reg = 4;
-
         sse *a = (sse *)A, *b = (sse *)B, *endA = (sse *)(A + lenA), *endB = (sse *)(B + lenB), *c = (sse *)C;
         sse *realA = endA;
         sse *realB = endB;
+        void (*func[5])(sse *&, sse *&, sse &, sse &, sse &, sse &) = {
+            optimizationCount0,
+            optimizationCount1,
+            optimizationCount2,
+            optimizationCount3,
+            optimizationCount4};
+        constexpr int nreg = reg;
 
-        endA -= 4;
-        endB -= 4;
-        sse a0, a1, a2, a3, a4, a5, a6, a7;
+        endA -= nreg;
+        endB -= nreg;
+        sse a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15;
         load(a0, a);
         load(a1, a + 1);
         load(a2, a + 2);
@@ -1327,13 +1573,12 @@ namespace merger
         load(a6, b + 2);
         load(a7, b + 3);
 
-        a += reg;
-        b += reg;
+        a += nreg;
+        b += nreg;
         sse *loadFrom = a, *opposite = b;
 
         while ((a <= loadFrom && loadFrom <= endA) || (b <= loadFrom && loadFrom <= endB))
         {
-
             bool first = *(ui *)loadFrom < *(ui *)opposite;
             sse *tmp = first ? loadFrom : opposite;
             opposite = first ? opposite : loadFrom;
@@ -1346,109 +1591,30 @@ namespace merger
             store(a2, c + 2);
             store(a3, c + 3);
 
-            c += reg;
+            c += nreg;
 
-            if (_mm_extract_epi32(a7, 3) <= *(ui *)loadFrom)
-            {
-                store(a4, c);
-                store(a5, c + 1);
-                store(a6, c + 2);
-                store(a7, c + 3);
-
-                load(a4, opposite);
-                load(a5, opposite + 1);
-                load(a6, opposite + 2);
-                load(a7, opposite + 3);
-
-                opposite += 4;
-                c += 4;
-            }
-            else if (_mm_extract_epi32(a6, 3) <= *(ui *)loadFrom)
-            {
-                store(a4, c);
-                store(a5, c + 1);
-                store(a6, c + 2);
-
-                a4 = a7;
-                load(a5, opposite);
-                load(a6, opposite + 1);
-                load(a7, opposite + 2);
-
-                opposite += 3;
-                c += 3;
-            }
-            else if (_mm_extract_epi32(a5, 3) <= *(ui *)loadFrom)
-            {
-                store(a4, c);
-                store(a5, c + 1);
-
-                a4 = a6;
-                a5 = a7;
-                load(a6, opposite);
-                load(a7, opposite + 1);
-
-                opposite += 2;
-                c += 2;
-            }
-            else if (_mm_extract_epi32(a4, 3) <= *(ui *)loadFrom)
-            {
-                store(a4, c);
-
-                a4 = a5;
-                a5 = a6;
-                a6 = a7;
-                load(a7, opposite);
-
-                opposite += 1;
-                c += 1;
-            }
+            conditionalOptimization(loadFrom, opposite, c, a4, a5, a6, a7);
             load(a0, loadFrom);
             load(a1, loadFrom + 1);
             load(a2, loadFrom + 2);
             load(a3, loadFrom + 3);
-            loadFrom += reg;
+
+            loadFrom += nreg;
         }
 
         batcherMerge(a0, a1, a2, a3, a4, a5, a6, a7);
+
         store(a0, c);
         store(a1, c + 1);
         store(a2, c + 2);
         store(a3, c + 3);
 
-        c += reg;
+        c += nreg;
+
         bool firstStream = (a <= loadFrom && loadFrom <= realA);
         sse *finishedStream = firstStream ? realA : realB;
 
-        int remainingElements = finishedStream - loadFrom;
-        if (remainingElements > 0)
-        {
-            // Adding the remaining elements from finished stream.
-            sse top[4];
-            sse bottom[4];
-            bottom[0] = a4;
-            bottom[1] = a5;
-            bottom[2] = a6;
-            bottom[3] = a7;
-            int zeros = 4 - remainingElements;
-
-            for (int i = 0; i < zeros; i++)
-            {
-                top[i] = _mm_set_epi32(0, 0, 0, 0);
-            }
-            for (int i = zeros; i < 4; i++)
-            {
-                sse ax;
-                load(ax, loadFrom + i - zeros);
-                top[i] = ax;
-            }
-            batcherMerge(top[0], top[1], top[2], top[3], a4, a5, a6, a7);
-            for (int i = zeros; i < 4; i++)
-            {
-                sse ax = top[i];
-                store(ax, c);
-                c += 1;
-            }
-        }
+        addRemainingElementsFromEndStream(finishedStream, loadFrom, c, a4, a5, a6, a7);
 
         sse *endOp = firstStream ? endB : endA;
         finishedStream = firstStream ? realB : realA;
@@ -1467,42 +1633,145 @@ namespace merger
             store(a2, c + 2);
             store(a3, c + 3);
 
-            opposite += reg;
-            c += reg;
+            opposite += nreg;
+            c += nreg;
         }
 
-        remainingElements = finishedStream - opposite;
-        if (remainingElements > 0)
-        {
-            // Adding the remaining elements from finished stream.
-            sse top[4];
-            int zeros = 4 - remainingElements;
-
-            for (int i = 0; i < zeros; i++)
-            {
-                top[i] = _mm_set_epi32(0, 0, 0, 0);
-            }
-            for (int i = zeros; i < 4; i++)
-            {
-                sse ax;
-                load(ax, opposite + i - zeros);
-                top[i] = ax;
-            }
-
-            batcherMerge(top[0], top[1], top[2], top[3], a4, a5, a6, a7);
-
-            for (int i = zeros; i < 4; i++)
-            {
-                sse ax = top[i];
-                store(ax, c);
-                c += 1;
-            }
-        }
-
+        addRemainingElementsFromEndStream(finishedStream, opposite, c, a4, a5, a6, a7);
         store(a4, c);
         store(a5, c + 1);
         store(a6, c + 2);
         store(a7, c + 3);
+    }
+
+    inline void vectorBatcherMergeOptimized32v32(ui *A, ui64 lenA, ui *B, ui64 lenB, ui *C)
+    {
+        constexpr int reg = 8;
+        sse *a = (sse *)A, *b = (sse *)B, *endA = (sse *)(A + lenA), *endB = (sse *)(B + lenB), *c = (sse *)C;
+        sse *realA = endA;
+        sse *realB = endB;
+
+        constexpr int nreg = reg;
+
+        endA -= nreg;
+        endB -= nreg;
+        sse a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15;
+
+        {
+            load(a0, a);
+            load(a1, a + 1);
+            load(a2, a + 2);
+            load(a3, a + 3);
+            load(a4, a + 4);
+            load(a5, a + 5);
+            load(a6, a + 6);
+            load(a7, a + 7);
+
+            load(a8, b);
+            load(a9, b + 1);
+            load(a10, b + 2);
+            load(a11, b + 3);
+            load(a12, b + 4);
+            load(a13, b + 5);
+            load(a14, b + 6);
+            load(a15, b + 7);
+        }
+
+        a += nreg;
+        b += nreg;
+        sse *loadFrom = a, *opposite = b;
+
+        while ((a <= loadFrom && loadFrom <= endA) || (b <= loadFrom && loadFrom <= endB))
+        {
+            bool first = *(ui *)loadFrom < *(ui *)opposite;
+            sse *tmp = first ? loadFrom : opposite;
+            opposite = first ? opposite : loadFrom;
+            loadFrom = tmp;
+
+            oddEvenMerge32v32(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            store(a4, c + 4);
+            store(a5, c + 5);
+            store(a6, c + 6);
+            store(a7, c + 7);
+
+            c += nreg;
+
+            load(a0, loadFrom);
+            load(a1, loadFrom + 1);
+            load(a2, loadFrom + 2);
+            load(a3, loadFrom + 3);
+
+            load(a4, loadFrom + 4);
+            load(a5, loadFrom + 5);
+            load(a6, loadFrom + 6);
+            load(a7, loadFrom + 7);
+
+            loadFrom += nreg;
+        }
+        oddEvenMerge32v32(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+
+        store(a0, c);
+        store(a1, c + 1);
+        store(a2, c + 2);
+        store(a3, c + 3);
+
+        store(a4, c + 4);
+        store(a5, c + 5);
+        store(a6, c + 6);
+        store(a7, c + 7);
+
+        c += nreg;
+
+        bool firstStream = (a <= loadFrom && loadFrom <= realA);
+        sse *finishedStream = firstStream ? realA : realB;
+
+        addRemainingElementsFromEndStream(finishedStream, loadFrom, c, a8, a9, a10, a11, a12, a13, a14, a15);
+
+        sse *endOp = firstStream ? endB : endA;
+        finishedStream = firstStream ? realB : realA;
+
+        while (opposite <= endOp)
+        {
+            load(a0, opposite);
+            load(a1, opposite + 1);
+            load(a2, opposite + 2);
+            load(a3, opposite + 3);
+
+            load(a4, opposite + 4);
+            load(a5, opposite + 5);
+            load(a6, opposite + 6);
+            load(a7, opposite + 7);
+
+            oddEvenMerge32v32(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15);
+
+            store(a0, c);
+            store(a1, c + 1);
+            store(a2, c + 2);
+            store(a3, c + 3);
+
+            store(a4, c + 4);
+            store(a5, c + 5);
+            store(a6, c + 6);
+            store(a7, c + 7);
+
+            opposite += nreg;
+            c += nreg;
+        }
+
+        store(a8, c);
+        store(a9, c + 1);
+        store(a10, c + 2);
+        store(a11, c + 3);
+        store(a12, c + 4);
+        store(a13, c + 5);
+        store(a14, c + 6);
+        store(a15, c + 7);
     }
 
     inline void vectorBatcherMerge(ui *A, ui64 lenA, ui *B, ui64 lenB, ui *C)

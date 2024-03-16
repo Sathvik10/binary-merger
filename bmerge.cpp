@@ -74,60 +74,6 @@ void correctnessChecked(ui *a, ui64 n)
 	}
 }
 
-template <ui split = 1, ui64 size = L2_BYTES>
-void bmerge()
-{
-	printf("--------------------------------------------------------------\n");
-	ui itemSize = sizeof(ui);
-	ui64 number_of_items = size / itemSize;
-
-	ui number_of_splits = split << 1;
-	ui aSplits = number_of_splits - 1;
-	ui bSplits = 1;
-
-	ui *src = (ui *)VALLOC(size);
-	ui *dest = (ui *)VALLOC(size);
-
-	// Generate the data
-	randomNumberGenerator(src, number_of_items);
-	memset(dest, 0, size);
-
-	// Start the Merge
-	int repeat = 10000;
-	double totalTime = 0.0;
-
-	ui64 split_size = number_of_items / number_of_splits;
-	std::sort(src, src + split_size * aSplits);
-	std::sort(src + split_size * aSplits, src + number_of_items);
-
-	// for (int i = 0 ; i < number_of_items ; i++)
-	// {
-	// 	printf("%u ", src[i]);
-	// }
-	printf("Config: Scalar %d : split %d : size %llu\n", 1, split, size);
-
-	for (int i = 0; i < repeat; i++)
-	{
-		hrc::time_point startTime = hrc::now();
-		merger::binaryMerge(src, split_size * aSplits, src + split_size * aSplits, split_size * bSplits, dest);
-		hrc::time_point endTime = hrc::now();
-
-		totalTime += duration_cast<duration<double, std::milli>>(endTime - startTime).count();
-
-		correctnessChecked(dest, number_of_items);
-	}
-	// for (int i = 0 ; i < number_of_items ; i++)
-	// {
-	// 	printf("%u ", *(dest + i));
-	// }
-
-	double speed = number_of_items * repeat / totalTime / 1e3;
-	printf("done, elapsed: %.2f ms, Speed: %.2f M/s\n", totalTime, speed);
-	printf("--------------------------------------------------------------\n");
-
-	// Check correctness
-}
-
 template <bool scalar = true, int mergeType = 0, ui split = 1, ui64 size = L2_BYTES>
 void merge()
 {
@@ -142,8 +88,6 @@ void merge()
 	ui *copy = (ui *)VALLOC(size);
 
 	// Generate the data
-	// datagen::Writer<ui>  writer;
-	// writer.generate(src, number_of_items, 1);
 	randomNumberGenerator(src, number_of_items);
 
 	memset(dest, 0, size);
@@ -155,7 +99,7 @@ void merge()
 	std::sort(copy, copy + number_of_items);
 
 	// Start the Merge
-	int repeat = 10000;
+	int repeat = REPEAT;
 	double totalTime = 0.0;
 
 	ui64 split_size = number_of_items / number_of_splits;
@@ -201,7 +145,7 @@ void merge()
 				}
 				else if constexpr (mergeType == 5)
 				{
-					merger::vectorBatcherMergeOptimizedv2(src, split_size, src + split_size, split_size, dest);
+					merger::vectorBatcherMergeOptimized(src, split_size, src + split_size, split_size, dest);
 				}
 				else
 				{
@@ -225,9 +169,9 @@ void merge()
 		hrc::time_point endTime = hrc::now();
 
 		totalTime += duration_cast<duration<double, std::milli>>(endTime - startTime).count();
-		for (int j = 0; j < split; j++)
-			correctnessChecked(dest + j * 2 * split_size, 2 * split_size);
 	}
+	for (int j = 0; j < split; j++)
+		correctnessChecked(dest + j * 2 * split_size, 2 * split_size);
 
 	// for (int i = 0 ; i < number_of_items ; i++)
 	// {
@@ -252,7 +196,7 @@ int main()
 	// Vector
 	// mergeType = 1: OddEven 2: Bitonic 3: Rotate and Swap 5: Batcher's Odd Even Merge
 	// MergeType
-	merge<false, 5, 2>();
+	merge<false, 5, 1>();
 
 	return 0;
 }
