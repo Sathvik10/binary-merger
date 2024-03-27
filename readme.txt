@@ -60,3 +60,19 @@ Checking correcntess ... done
 
 1 MB - 2722.24 M/s
 20 MB - 2161.64 M/S
+
+---------------------------------------------------
+
+Number of cycles for each operation:
+
+32v32 gave 85 cycles. (Just the merge operation)
+
+16v16 gave 26 cycles. (Just the merge operation)
+
+32v32 along with load and store gave 315 cycles. [includes 16 load and 16 store]
+
+16v16 along with load and store gave 114 cycles. [includes 8 loads and 8 stores].
+
+24v24 gave 68 cycles. (Just the merge operation)
+
+24v24 along with load and store gave 120 cycles. [includes 12 loads and 12 stores].
