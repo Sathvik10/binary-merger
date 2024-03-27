@@ -9,6 +9,12 @@ namespace merger
         {
             std::cout << values[i] << " ";
         }
+    }
+    template <typename... Args>
+    void print128(Args... args)
+    {
+        std::cout << "Values: ";
+        (void)std::initializer_list<int>{((void)print128i(args), 0)...};
         std::cout << std::endl;
     }
 
@@ -744,6 +750,109 @@ namespace merger
 
         x1 = _mm_shuffle_epi32(temp, _MM_SHUFFLE(2, 0, 3, 1));
         x2 = _mm_shuffle_epi32(x2, _MM_SHUFFLE(0, 2, 1, 3));
+    }
+
+    inline void oddEvenMerge24v24(sse &x1, sse &x2, sse &x3, sse &x4, sse &x5, sse &x6, sse &x7, sse &x8, sse &x9, sse &x10, sse &x11, sse &x12)
+    {
+        // Step 1
+        minMaxSwap(x1, x7);
+        minMaxSwap(x2, x8);
+        minMaxSwap(x3, x9);
+        minMaxSwap(x4, x10);
+        minMaxSwap(x5, x11);
+        minMaxSwap(x6, x12);
+
+        // Step 2
+        minMaxSwap(x7, x4);
+        minMaxSwap(x8, x5);
+        minMaxSwap(x9, x6);
+
+        // Step 3
+        sse t = _mm_alignr_epi8(x7, _mm_set_epi32(0, 0, 0, 0), 8);
+        x7 = _mm_alignr_epi8(x8, x7, 8);
+        x8 = _mm_alignr_epi8(x9, x8, 8);
+        x9 = _mm_alignr_epi8(x10, x9, 8);
+        x10 = _mm_alignr_epi8(x11, x10, 8);
+        x11 = _mm_alignr_epi8(x12, x11, 8);
+        x12 = _mm_alignr_epi8(x12, x12, 8);
+
+        minMaxSwap(t, x2);
+        minMaxSwap(x7, x3);
+        minMaxSwap(x8, x4);
+        minMaxSwap(x9, x5);
+        minMaxSwap(x10, x6);
+
+        x12 = _mm_alignr_epi8(x12, x12, 12);
+        x11 = _mm_alignr_epi8(x11, x10, 12);
+        x10 = _mm_alignr_epi8(x10, x9, 12);
+        x9 = _mm_alignr_epi8(x9, x8, 12);
+        x8 = _mm_alignr_epi8(x8, x7, 12);
+        x7 = _mm_alignr_epi8(x7, t, 12);
+        t = _mm_alignr_epi8(t, _mm_set_epi32(0, 0, 0, 0), 12);
+
+        minMaxSwap(t, x1);
+        minMaxSwap(x7, x2);
+        minMaxSwap(x8, x3);
+        minMaxSwap(x9, x4);
+        minMaxSwap(x10, x5);
+        minMaxSwap(x11, x6);
+
+        t = _mm_alignr_epi8(x7, t, 4);
+        x7 = _mm_alignr_epi8(x8, x7, 4);
+        x8 = _mm_alignr_epi8(x9, x8, 4);
+        x9 = _mm_alignr_epi8(x10, x9, 4);
+        x10 = _mm_alignr_epi8(x11, x10, 4);
+        x11 = _mm_alignr_epi8(x12, x11, 4);
+        x12 = _mm_alignr_epi8(x12, x12, 4);
+
+        minMaxSwap(t, x1);
+        minMaxSwap(x7, x2);
+        minMaxSwap(x8, x3);
+        minMaxSwap(x9, x4);
+        minMaxSwap(x10, x5);
+        minMaxSwap(x11, x6);
+
+        t = _mm_alignr_epi8(x7, t, 4);
+        x7 = _mm_alignr_epi8(x8, x7, 4);
+        x8 = _mm_alignr_epi8(x9, x8, 4);
+        x9 = _mm_alignr_epi8(x10, x9, 4);
+        x10 = _mm_alignr_epi8(x11, x10, 4);
+        x11 = _mm_alignr_epi8(x12, x11, 4);
+        x12 = _mm_alignr_epi8(x12, x12, 4);
+
+        minMaxSwap(t, x1);
+        minMaxSwap(x7, x2);
+        minMaxSwap(x8, x3);
+        minMaxSwap(x9, x4);
+        minMaxSwap(x10, x5);
+        minMaxSwap(x11, x6);
+
+        t = _mm_alignr_epi8(x7, t, 4);
+        x7 = _mm_alignr_epi8(x8, x7, 4);
+        x8 = _mm_alignr_epi8(x9, x8, 4);
+        x9 = _mm_alignr_epi8(x10, x9, 4);
+        x10 = _mm_alignr_epi8(x11, x10, 4);
+        x11 = _mm_alignr_epi8(x12, x11, 4);
+
+        x12 = _mm_unpackhi_epi32(x6, x11);
+        x11 = _mm_unpacklo_epi32(x6, x11);
+        sse t_x9 = _mm_unpacklo_epi32(x5, x10);
+        x10 = _mm_unpackhi_epi32(x5, x10);
+
+        sse t_x8 = _mm_unpackhi_epi32(x4, x9);
+        sse t_x7 = _mm_unpacklo_epi32(x4, x9);
+
+        x6 = _mm_unpackhi_epi32(x3, x8);
+        x5 = _mm_unpacklo_epi32(x3, x8);
+
+        x4 = _mm_unpackhi_epi32(x2, x7);
+        x3 = _mm_unpacklo_epi32(x2, x7);
+
+        x2 = _mm_unpackhi_epi32(x1, t);
+        x1 = _mm_unpacklo_epi32(x1, t);
+        x8 = t_x8;
+        x7 = t_x7;
+        x9 = t_x9;
     }
 
     // 20 shuffles, 3 blends and 17 swaps
